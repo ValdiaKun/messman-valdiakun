@@ -4,6 +4,16 @@ A beginner-friendly, mobile-first preparation checklist for Filipino applicants 
 
 Built with plain **HTML, CSS and JavaScript**. No backend, accounts, install commands or paid services required.
 
+## Interactive guide update (October 26, 2026)
+
+- A five-stage clickable beginner-to-boarding roadmap.
+- **View guide** buttons on all 26 requirements. Each guide explains why, how to complete it, what to prepare, employer-dependent requirements and relevant official links.
+- Complete or undo tasks directly inside a guide; open the next guide with one tap.
+- Search also checks guide content. Progress and roadmap automatically refresh.
+- Separate `guides.js` stores all step-by-step help. Add a matching guide whenever you add a checklist task.
+
+Official guidance is dated and employer-specific; confirm details with MARINA, TESDA, DMW or your licensed manning agency before making payments. The app remains independent and stores your checklist on the device only.
+
 ## What it does
 
 - Organizes the journey into **5 stages**: documents, training, seafarer documents, job search and after-hiring tasks.

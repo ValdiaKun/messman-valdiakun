@@ -1,7 +1,7 @@
 /* Cache only app shell assets. Government sites are never intercepted. */
-const CACHE_NAME = 'messman-ready-shell-v1';
+const CACHE_NAME = 'messman-ready-shell-v2';
 const APP_FILES = [
-  './', './index.html', './styles.css', './app.js', './manifest.webmanifest',
+  './', './index.html', './styles.css', './app.js', './guides.js', './manifest.webmanifest',
   './assets/favicon.svg', './assets/icon-192.png', './assets/icon-512.png'
 ];
 self.addEventListener('install', event => {

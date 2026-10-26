@@ -75,6 +75,9 @@ let toastTimer;
 
 const stageList = document.getElementById('stage-list');
 const searchInput = document.getElementById('task-search');
+const guideDialog = document.getElementById('guide-dialog');
+let activeGuideId = null;
+let lastGuideTrigger = null;
 
 function loadSaved() {
   try {
@@ -99,19 +102,34 @@ function coreCounts(tasks) {
 }
 function matching(task) {
   const search = searchInput.value.trim().toLocaleLowerCase();
-  const matchesText = !search || `${task.title} ${task.description}`.toLocaleLowerCase().includes(search);
+  const guide = GUIDES[task.id] || {};
+  const matchesText = !search || [task.title, task.description, guide.why, ...(guide.steps || []), guide.bring].join(' ').toLocaleLowerCase().includes(search);
   const matchesState = activeFilter === 'all' || (activeFilter === 'done' ? completed.has(task.id) : !completed.has(task.id));
   return matchesText && matchesState;
 }
 function renderTask(task) {
   const done = completed.has(task.id);
-  const flags = [task.conditional ? '<span class="task-tag task-tag-conditional">If required</span>' : '', task.later ? '<span class="task-tag task-tag-later">After offer</span>' : ''].join('');
-  const link = task.url ? `<a class="task-link" href="${escapeHtml(task.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(task.urlLabel)} ${icon('external')}</a>` : '';
+  const flags = [task.conditional ? '<span class="task-tag task-tag-conditional">If required</span>' : '', task.later ? '<span class="task-tag task-tag-later">After hiring</span>' : ''].join('');
   return `<div class="task" id="task-${task.id}" data-done="${done}">
     <input type="checkbox" class="task-check" id="check-${task.id}" data-task-id="${task.id}" ${done?'checked':''} aria-label="${escapeHtml(task.title)}">
     <div class="task-content"><div class="task-title-line"><label for="check-${task.id}" class="task-title">${escapeHtml(task.title)}</label>${flags}</div>
-    <p>${escapeHtml(task.description)}</p>${link}</div></div>`;
+    <p>${escapeHtml(task.description)}</p>
+    <button type="button" class="task-guide" data-guide="${task.id}" aria-label="View guide: ${escapeHtml(task.title)}">${icon('book')} View guide ${icon('arrow')}</button>
+    </div></div>`;
 }
+function renderJourney() {
+  const grid = document.getElementById('journey-grid');
+  grid.innerHTML = STAGES.map((stage, index) => {
+    const {done, total} = coreCounts(stage.tasks);
+    return `<button class="journey-card" type="button" data-jump-stage="${stage.id}">
+      <span class="journey-number">${String(index+1).padStart(2,'0')}</span>
+      <strong>${escapeHtml(stage.title)}</strong>
+      <span>${escapeHtml(stage.subtitle)}</span>
+      <span class="journey-count">${done}/${total} essential steps ${icon('arrow')}</span>
+    </button>`;
+  }).join('');
+}
+
 function render() {
   let displayed = 0;
   const html = STAGES.map((stage, index) => {
@@ -133,11 +151,10 @@ function render() {
     else opened.delete(el.dataset.stageId);
   }));
   stageList.querySelectorAll('.task-check').forEach(el => el.addEventListener('change', () => {
-    if (el.checked) completed.add(el.dataset.taskId);
-    else completed.delete(el.dataset.taskId);
-    save(); render();
+    toggleTask(el.dataset.taskId);
   }));
   updateSummary();
+  renderJourney();
 }
 function updateSummary() {
   const counts = coreCounts(CORE_TASKS);
@@ -169,6 +186,50 @@ function focusTask(id) {
     row?.querySelector('input')?.focus({ preventScroll: true });
   });
 }
+function guideLink(link) {
+  // All links come from the trusted, static GUIDES data (no user-provided URLs).
+  return `<a class="guide-resource-link" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link.label)} ${icon('external')}</a>`;
+}
+function showGuide(id, preserveOpen = false) {
+  const task = ALL_TASKS.find(item => item.id === id);
+  const guide = GUIDES[id];
+  if (!task || !guide) return;
+  if (!preserveOpen) lastGuideTrigger = document.activeElement;
+  activeGuideId = id;
+  const stageIndex = STAGES.findIndex(stage => stage.id === task.stageId);
+  document.getElementById('guide-stage').textContent = `STAGE ${stageIndex + 1} · ${STAGES[stageIndex].title.toUpperCase()}`;
+  document.getElementById('guide-title').textContent = task.title;
+  const steps = guide.steps.map((step, i) => `<li><span class="guide-step-number">${i+1}</span><span>${escapeHtml(step)}</span></li>`).join('');
+  const resources = guide.links?.length ? `<section class="guide-panel"><h3>Official links & references</h3><div class="guide-links">${guide.links.map(guideLink).join('')}</div><p class="guide-online-hint">Government websites require an internet connection.</p></section>` : '';
+  document.getElementById('guide-content').innerHTML = `
+    <div class="guide-flags">${task.conditional ? '<span class="guide-flag">Only if your employer requires it</span>' : '<span class="guide-flag guide-flag-core">Common preparation step</span>'}${task.later ? '<span class="guide-flag">Do this after a job offer</span>' : ''}</div>
+    <section class="guide-panel guide-intro"><h3>Why this matters</h3><p>${escapeHtml(guide.why)}</p></section>
+    <section class="guide-panel"><h3>How to do it</h3><ol class="guide-steps">${steps}</ol></section>
+    ${guide.bring ? `<section class="guide-panel guide-prepare"><h3>What to prepare</h3><p>${escapeHtml(guide.bring)}</p></section>` : ''}
+    ${resources}
+    ${guide.note ? `<aside class="guide-tip"><strong>Important to know</strong><p>${escapeHtml(guide.note)}</p></aside>` : ''}
+  `;
+  const done = completed.has(id);
+  const doneButton = document.getElementById('guide-done');
+  doneButton.textContent = done ? '✓ Completed · Undo' : '✓ Mark complete';
+  doneButton.setAttribute('aria-pressed', String(done));
+  const next = ALL_TASKS[ALL_TASKS.findIndex(t => t.id === id) + 1];
+  const nextButton = document.getElementById('guide-next');
+  nextButton.disabled = !next;
+  nextButton.innerHTML = next ? `Next guide ${icon('arrow')}` : 'Last guide';
+  if (!guideDialog.open) guideDialog.showModal();
+  document.getElementById('guide-content').scrollTop = 0;
+  guideDialog.querySelector('.guide-dialog-shell').scrollTop = 0;
+  if (!preserveOpen) document.getElementById('guide-close').focus();
+}
+function toggleTask(id) {
+  if (completed.has(id)) completed.delete(id); else completed.add(id);
+  save();
+  render();
+  if (activeGuideId === id && guideDialog.open) showGuide(id, true);
+}
+function closeGuide() { if (guideDialog.open) guideDialog.close(); }
+
 function updateFilterButtons() {
   document.querySelectorAll('.filter-button').forEach(button => {
     const active = button.dataset.filter === activeFilter;
@@ -206,6 +267,31 @@ async function importProgress(file) {
   } catch (error) { toast(error.message || 'Could not read that backup file.'); }
 }
 
+stageList.addEventListener('click', event => {
+  const button = event.target.closest('button[data-guide]');
+  if (button) showGuide(button.dataset.guide);
+});
+document.getElementById('journey-grid').addEventListener('click', event => {
+  const button = event.target.closest('[data-jump-stage]');
+  if (!button) return;
+  opened.add(button.dataset.jumpStage);
+  activeFilter = 'all'; searchInput.value = '';
+  updateFilterButtons(); render();
+  document.querySelector(`[data-stage-id="${button.dataset.jumpStage}"]`)?.scrollIntoView({behavior:'smooth',block:'start'});
+});
+document.getElementById('guide-close').addEventListener('click', closeGuide);
+guideDialog.addEventListener('click', event => { if (event.target === guideDialog) closeGuide(); });
+guideDialog.addEventListener('close', () => {
+  activeGuideId = null;
+  if (lastGuideTrigger?.isConnected) lastGuideTrigger.focus({preventScroll:true});
+});
+document.getElementById('guide-done').addEventListener('click', () => {
+  if (activeGuideId) toggleTask(activeGuideId);
+});
+document.getElementById('guide-next').addEventListener('click', () => {
+  const index = ALL_TASKS.findIndex(t => t.id === activeGuideId);
+  if (ALL_TASKS[index+1]) showGuide(ALL_TASKS[index+1].id, true);
+});
 document.querySelectorAll('.filter-button').forEach(button => button.addEventListener('click', () => {
   activeFilter = button.dataset.filter;
   updateFilterButtons();
@@ -214,7 +300,7 @@ document.querySelectorAll('.filter-button').forEach(button => button.addEventLis
 searchInput.addEventListener('input', render);
 document.getElementById('next-button').addEventListener('click', event => {
   const id = event.currentTarget.dataset.nextId;
-  if (id) focusTask(id);
+  if (id) showGuide(id);
   else document.getElementById('checklist').scrollIntoView({ behavior:'smooth' });
 });
 document.getElementById('export-button').addEventListener('click', exportProgress);
