@@ -27,14 +27,20 @@ python3 -m http.server 4173
 
 Then visit `http://localhost:4173`.
 
-## Publish with GitHub Pages
+## Automatic deployment with GitHub Pages
 
-1. In this repository, open **Settings → Pages**.
-2. Under **Build and deployment**, choose **Deploy from a branch**.
-3. Select `main`, folder `/ (root)`, and save.
-4. After GitHub Pages deploys, the site will be available at `https://valdiakun.github.io/messman-valdiakun/` (subject to Pages being enabled and deployment succeeding).
+The repository includes [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), a GitHub Actions workflow that deploys the website automatically after each push to `main`.
 
-Every committed update to `main` is published by Pages when this deployment mode is enabled.
+**One-time GitHub setup (must be done by a repository administrator):**
+
+1. Open **Settings → Pages**: https://github.com/ValdiaKun/messman-valdiakun/settings/pages
+2. Under **Build and deployment → Source**, select **GitHub Actions**. This enables the Pages site.
+3. Open **Actions → Deploy Messman Ready to GitHub Pages** and select **Run workflow** for `main` to publish the initial version: https://github.com/ValdiaKun/messman-valdiakun/actions/workflows/deploy.yml
+4. Check the deployment run until it reports success, then open https://valdiakun.github.io/messman-valdiakun/.
+
+The first workflow run before Pages is enabled will fail at `Configure GitHub Pages` with a 404 error. This is expected until step 2 is complete. Future pushes to `main` deploy automatically after this one-time setup.
+
+No additional packages, deploy token or third-party hosting account are needed.
 
 ## Customize
 
